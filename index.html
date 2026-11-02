@@ -231,6 +231,8 @@ body.started .ctrl{opacity:1}
 .mk.sel .core{box-shadow:0 0 20px var(--c)}
 .glass{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(12,18,36,.86)}
 @media (max-width:760px){.glass,.chip{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(12,18,36,.93)}}
+.mk{contain:layout style}
+#world{backface-visibility:hidden}
 </style>
 </head>
 <body>
@@ -326,10 +328,10 @@ const qs=p=>encodeURIComponent(p.q);
 /* ================= КАРТА (из OpenStreetMap): один раз рисуется в canvas, дальше это просто картинка ================= */
 (function drawMap(M){
   const wd=document.getElementById('world'), cv=document.getElementById('bmc'), bm=document.getElementById('basemap');
-  const MG=450;                                   // поля за краями района: там тоже море/фон
+  const MG=220;                                   // поля за краями района: там тоже море/фон
   wd.style.width=WW+'px';wd.style.height=WH+'px';
   const cw=WW+2*MG, ch=WH+2*MG;
-  const ratio=Math.min(2,Math.sqrt(11e6/(cw*ch)),devicePixelRatio||1.5);
+  const ratio=Math.min(1.1,Math.sqrt(7e6/(cw*ch)));
   cv.width=Math.round(cw*ratio);cv.height=Math.round(ch*ratio);
   cv.style.cssText=`left:${-MG}px;top:${-MG}px;width:${cw}px;height:${ch}px`;
   const c=cv.getContext('2d');c.scale(ratio,ratio);c.translate(MG,MG);
@@ -384,12 +386,16 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function measure(){W=viewport.clientWidth;H=viewport.clientHeight}
 const coverS=()=>Math.max(W/WW,H/WH)*(isM()?.55:.85);
+let lastS=-1;
 function apply(){
   const cx=W/2+cam.ox, cy=H/2+cam.oy;
-  world.style.transform=`translate(${cx-cam.x*cam.s}px,${cy-cam.y*cam.s}px) scale(${cam.s})`;
-  world.style.setProperty('--inv',(Math.min(1,Math.max(.42,cam.s*2.2))/cam.s).toFixed(4));
-  world.classList.toggle('mid',cam.s>.9);
-  world.classList.toggle('zoomed',cam.s>1.25);
+  world.style.transform=`translate3d(${(cx-cam.x*cam.s).toFixed(1)}px,${(cy-cam.y*cam.s).toFixed(1)}px,0) scale(${cam.s})`;
+  if(Math.abs(cam.s-lastS)>.004){
+    lastS=cam.s;
+    world.style.setProperty('--inv',(Math.min(1,Math.max(.42,cam.s*2.2))/cam.s).toFixed(3));
+    world.classList.toggle('mid',cam.s>.9);
+    world.classList.toggle('zoomed',cam.s>1.25);
+  }
 }
 function fly(to,dur=1500){
   const id=++animId, from={...cam};
@@ -410,7 +416,7 @@ function fly(to,dur=1500){
 function zoomAt(sx,sy,f){
   const cx=W/2+cam.ox, cy=H/2+cam.oy;
   const wx=cam.x+(sx-cx)/cam.s, wy=cam.y+(sy-cy)/cam.s;
-  cam.s=clamp(cam.s*f,coverS(),2.2);
+  cam.s=clamp(cam.s*f,coverS(),1.9);
   cam.x=wx-(sx-cx)/cam.s; cam.y=wy-(sy-cy)/cam.s;
   limit(); apply();
 }
