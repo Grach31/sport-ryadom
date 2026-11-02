@@ -237,6 +237,9 @@ body.started .ctrl{opacity:1}
 .emblem{position:fixed;z-index:60;right:24px;top:16px;height:54px;width:auto;pointer-events:none;filter:drop-shadow(0 4px 14px rgba(0,0,0,.5))}
 @media (min-width:761px){.panel{top:84px}}
 @media (max-width:760px){.emblem{right:12px;top:max(12px,env(safe-area-inset-top));height:44px}.top{right:64px}#replay{display:none}.brand{padding:7px 12px}.brand b{font-size:11px}.search{padding:0 10px;gap:7px}}
+.gymhead{display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--c) 28%,#0b1226),#0b1226 70%)}
+.gymhead>svg{width:84px;height:84px;fill:none;stroke:var(--c);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 14px var(--c))}
+.lnk{color:var(--acc);text-decoration:none;border-bottom:1px dashed rgba(61,213,255,.5);word-break:break-all}
 </style>
 </head>
 <body>
@@ -300,6 +303,7 @@ body.started .ctrl{opacity:1}
       <div><b id="n1">45</b><small>площадок</small></div>
       <div><b id="n2">28</b><small>футбол и баскетбол</small></div>
       <div><b id="n3">17</b><small>воркаут</small></div>
+      <div><b id="n4">10</b><small>залов</small></div>
     </div>
     <button class="go" id="go">Открыть карту <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
   </div>
@@ -310,22 +314,25 @@ body.started .ctrl{opacity:1}
 /* ================= ДАННЫЕ: data/places.json (реестр) + data/map.json (карта из OpenStreetMap) ================= */
 let PLACES, MAP, WW=2400, WH=1600;
 try{
-  const [pj,mj]=await Promise.all([fetch('data/places.json').then(r=>r.json()),fetch('data/map.json?'+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()})]);
+  const [pj,mj,gj]=await Promise.all([fetch('data/places.json').then(r=>r.json()),fetch('data/map.json?'+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()}),fetch('data/gyms.json').then(r=>r.ok?r.json():[]).catch(()=>[])]);
   PLACES=pj;MAP=mj;WW=MAP.WW;WH=MAP.WH;
+  gj.forEach(g=>{if(MAP.gyms&&MAP.gyms[g.id])PLACES.push({id:g.id,name:g.name,reg:g.reg,mt:'gym',sports:['gym'],kind:g.kind,q:g.addr?('Сочи, '+g.addr):g.name,gym:g,cover:null,school:false,area:'',owner:'',equip:'',photos:[]})});
 }catch(e){
   document.body.innerHTML='<div style="position:fixed;inset:0;display:grid;place-items:center;padding:30px;text-align:center;color:#8a97b8;font:600 16px Manrope,system-ui,sans-serif;background:#070b16">Карта района ещё собирается.<br>Запусти «Actions → build-map → Run workflow» в репозитории и обнови страницу.</div>';
   return;
 }
-PLACES.forEach(p=>{const c=MAP.places[p.id];p.x=c.x;p.y=c.y;p.prec=c.prec});
+PLACES.forEach(p=>{const c=(p.mt==='gym'?MAP.gyms:MAP.places)[p.id];p.x=c.x;p.y=c.y;p.prec=p.mt==='gym'?'house':c.prec});
 const SPORTS={
   football:  {n:'Футбол',    c:'#3dff9a'},
   basketball:{n:'Баскетбол', c:'#ff8a3d'},
-  workout:   {n:'Воркаут',   c:'#3dd5ff'}
+  workout:   {n:'Воркаут',   c:'#3dd5ff'},
+  gym:       {n:'Залы и фитнес', c:'#ff3dcb'}
 };
-const MT={multi:{n:'Футбол и баскетбол',c:'#3dff9a'},workout:{n:'Воркаут',c:'#3dd5ff'}};
+const MT={multi:{n:'Футбол и баскетбол',c:'#3dff9a'},workout:{n:'Воркаут',c:'#3dd5ff'},gym:{n:'Зал / фитнес-клуб',c:'#ff3dcb'}};
 const ICONS={
   multi:'<circle cx="12" cy="12" r="9"/><path d="M12 8l3.2 2.3-1.2 3.8h-4l-1.2-3.8z"/><path d="M12 3v5M15.2 10.3l4.6-1.6M14 14.1l2.8 3.9M10 14.1l-2.8 3.9M8.8 10.3L4.2 8.7"/>',
-  workout:'<path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>'
+  workout:'<path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>',
+  gym:'<path d="M3 12h3.5l2-5.5 3.5 11 2.5-8 1.5 2.5H21"/>'
 };
 const icon=t=>`<svg viewBox="0 0 24 24">${ICONS[t]}</svg>`;
 const qs=p=>encodeURIComponent(p.q);
@@ -366,7 +373,7 @@ const qs=p=>encodeURIComponent(p.q);
   }
   // подписи микрорайонов — лёгкий SVG поверх картинки
   bm.setAttribute('width',WW);bm.setAttribute('height',WH);bm.setAttribute('viewBox',`0 0 ${WW} ${WH}`);
-  const regs={};PLACES.forEach(p=>{(regs[p.reg]=regs[p.reg]||[]).push(p)});
+  const regs={};PLACES.forEach(p=>{if(p.mt!=='gym')(regs[p.reg]=regs[p.reg]||[]).push(p)});
   bm.innerHTML=`<g font-family="Manrope,sans-serif" font-weight="800" fill="rgba(160,185,240,.5)" letter-spacing="6" text-anchor="middle">${Object.entries(regs).map(([r,l])=>{
     const cx=l.reduce((s,p)=>s+p.x,0)/l.length, cy=Math.min(...l.map(p=>p.y))-70, t=r.toUpperCase();
     return `<text class="zl${r.includes('округ')?' al':''}" x="${cx}" y="${cy}" font-size="${t.length>14?26:34}">${t}</text>`}).join('')}</g>`;
@@ -476,7 +483,7 @@ function update(){
   document.getElementById('lcount').textContent=shown.length+' '+word(shown.length);
   document.getElementById('mcount').textContent=shown.length+' '+word(shown.length);
   listEl.innerHTML=shown.length?shown.map(p=>{const s=MT[p.mt];
-    return `<button class="it ${p.id===selId?'sel':''}" data-id="${p.id}" style="--c:${s.c}"><span class="ic">${icon(p.mt)}</span><span class="tx"><b>${p.name}</b><i>${p.reg} · ${p.mt==='workout'?'Воркаут':'Футбол и баскетбол'}</i></span><span class="tg">${p.area} м²</span></button>`}).join(''):
+    return `<button class="it ${p.id===selId?'sel':''}" data-id="${p.id}" style="--c:${s.c}"><span class="ic">${icon(p.mt)}</span><span class="tx"><b>${p.name}</b><i>${p.reg} · ${p.mt==='workout'?'Воркаут':p.mt==='gym'?p.kind:'Футбол и баскетбол'}</i></span><span class="tg">${p.mt==='gym'?'Зал':p.area+' м²'}</span></button>`}).join(''):
     `<div class="empty">Ничего не найдено.<br>Попробуй убрать часть фильтров.</div>`;
 }
 listEl.addEventListener('click',e=>{const b=e.target.closest('.it');if(b)select(+b.dataset.id)});
@@ -503,7 +510,42 @@ const I={
   walk:'<svg viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="1.8"/><path d="M9 21l2-6-2.5-3 1.5-4.5 3 1.5 2 3.5M11.500 15l3.500 2 1 4M7 12l3-3"/></svg>',
   car:'<svg viewBox="0 0 24 24"><path d="M4 16V12l2-5h12l2 5v4M4 16h16M4 16v2.500M20 16v2.500M3.500 12h17"/><circle cx="7.500" cy="14" r=".6"/><circle cx="16.500" cy="14" r=".6"/></svg>'
 };
+function showGymCard(p){
+  const g=p.gym, s=MT.gym;
+  const lat=g.lat,lon=g.lon;
+  const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const site=g.website?`<div class="wide"><small>Сайт</small><b><a class="lnk" href="${g.website}" target="_blank" rel="noopener">${g.website.replace(/^https?:\/\//,'').replace(/\/$/,'')}</a></b></div>`:'';
+  vcard.innerHTML=`
+  <div class="nav"><button id="cback">${I.back}Все площадки</button><button class="sq" id="cx" title="Закрыть">${I.x}</button></div>
+  <div class="cardwrap">
+    <div class="photo gymhead" style="--c:${s.c}"><svg viewBox="0 0 24 24">${ICONS.gym}</svg><div class="badge"><span><i></i>${esc(p.reg)}</span><span>${esc(g.kind)}</span></div></div>
+    <div class="cbody">
+      <h2>${esc(p.name)}</h2>
+      <div class="sub">${esc(g.kind)}${g.addr?' · '+esc(g.addr):''}</div>
+      ${g.sports&&g.sports.length?`<div class="tags">${g.sports.map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}
+      <div class="grid">
+        ${g.hours?`<div class="wide"><small>Часы работы</small><b>${esc(g.hours)}</b></div>`:''}
+        ${g.phone?`<div class="wide"><small>Телефон</small><b><a class="lnk" href="tel:${g.phone.replace(/[^+\d]/g,'')}">${esc(g.phone)}</a></b></div>`:''}
+        ${g.price?`<div class="wide"><small>Цены</small><b>${esc(g.price)}</b></div>`:''}
+        ${site}
+      </div>
+      <p class="desc">${esc(g.desc)}</p>
+      <p class="desc" style="font-size:12px;opacity:.7">Данные: ${esc(g.src)}. Часы, цены и телефон лучше уточнить у клуба.</p>
+      <div class="route">
+        <h4>Как добраться</h4>
+        <div class="rb">
+          <a class="go2" href="yandexnavi://build_route_on_map?lat_to=${lat}&lon_to=${lon}">${I.car}<span>Яндекс Навигатор<small>на телефоне</small></span></a>
+          <a href="https://yandex.ru/maps/?mode=routes&rtext=~${lat},${lon}&rtt=auto" target="_blank" rel="noopener">${I.walk}<span>Яндекс Карты<small>маршрут</small></span></a>
+        </div>
+        ${g.addr?`<div class="rl"><span class="addr">Сочи, ${esc(g.addr)}</span></div>`:''}
+      </div>
+    </div>
+  </div>`;
+  vcard.querySelector('#cback').onclick=()=>closeCard(false);
+  vcard.querySelector('#cx').onclick=()=>closeCard(true);
+}
 function showCard(p){
+  if(p.mt==='gym')return showGymCard(p);
   const s=MT[p.mt];
   const ph=p.photos&&p.photos.length?p.photos:null;
   const img=ph?`<div class="gal">${ph.map(u=>`<img src="${u}" alt="${p.name}" loading="lazy">`).join('')}</div>`:court(p.mt);
@@ -601,7 +643,7 @@ function resetIntro(){
   buildTitle();
   intro.querySelectorAll('.kick,.lead,.stats,.go').forEach(el=>{el.style.animation='none';el.offsetHeight;el.style.animation=''});
   intro.classList.remove('hide');
-  count(document.getElementById('n1'),PLACES.length);count(document.getElementById('n2'),PLACES.filter(p=>p.mt==='multi').length);count(document.getElementById('n3'),PLACES.filter(p=>p.mt==='workout').length);
+  count(document.getElementById('n1'),PLACES.filter(p=>p.mt!=='gym').length);count(document.getElementById('n2'),PLACES.filter(p=>p.mt==='multi').length);count(document.getElementById('n3'),PLACES.filter(p=>p.mt==='workout').length);count(document.getElementById('n4'),PLACES.filter(p=>p.mt==='gym').length);
 }
 async function start(){
   intro.classList.add('hide');document.body.classList.add('started');

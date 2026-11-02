@@ -7,6 +7,7 @@ on:
     paths:
       - scripts/build_map.py
       - data/places.json
+      - data/gyms.json
       - data/coords_override.json
       - .github/workflows/build-map.yml
 

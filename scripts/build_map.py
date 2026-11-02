@@ -202,7 +202,7 @@ def make_projection(bbox):
     return proj, WW, WH
 
 
-def process(bbox, boundary, elements, places, override, cache):
+def process(bbox, boundary, elements, places, override, cache, gyms=()):
     proj, WW, WH = make_projection(bbox)
     P = lambda pts: [proj(lon, lat) for lon, lat in pts]
 
@@ -303,6 +303,19 @@ def process(bbox, boundary, elements, places, override, cache):
         v["x"], v["y"] = round(x, 1), round(y, 1)
         placed.append((x, y))
 
+    # залы и фитнес-клубы: координаты уже известны (OpenStreetMap), просто переводим в систему карты
+    gy_out = {}
+    for g in gyms:
+        x, y = proj(g["lon"], g["lat"])
+        k = 0
+        px, py = x, y
+        while any(math.hypot(px - a, py - b) < 26 for a, b in placed) and k < 24:
+            k += 1
+            ang, rad = k * 2.4 + 1.0, 26 + 5 * k
+            px, py = x + rad * math.cos(ang), y + rad * math.sin(ang)
+        placed.append((px, py))
+        gy_out[str(g["id"])] = {"x": round(px, 1), "y": round(py, 1)}
+
     out = {
         "WW": WW, "WH": WH,
         "sea": sea, "coast": coast, "district": district,
@@ -311,6 +324,7 @@ def process(bbox, boundary, elements, places, override, cache):
         "rivers": [{"k": k, "d": path_d(p)} for k, p in rivers],
         "roads": {k: "".join(path_d(w) for w in v if len(w) > 1) for k, v in roads.items()},
         "places": pl_out,
+        "gyms": gy_out,
         "built": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()),
         "source": "© участники OpenStreetMap",
     }
@@ -323,8 +337,10 @@ def main():
     override = json.load(open(ov_path)) if os.path.exists(ov_path) else {}
     cache_path = os.path.join(ROOT, "data/geocode_cache.json")
     cache = json.load(open(cache_path, encoding="utf-8")) if os.path.exists(cache_path) else {}
+    gp = os.path.join(ROOT, "data/gyms.json")
+    gyms = json.load(open(gp, encoding="utf-8")) if os.path.exists(gp) else []
     bbox, boundary, elements = build()
-    result = process(bbox, boundary, elements, places, override, cache)
+    result = process(bbox, boundary, elements, places, override, cache, gyms)
     json.dump(cache, open(cache_path, "w", encoding="utf-8"), ensure_ascii=False, indent=0)
     with open(os.path.join(ROOT, "data/map.json"), "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, separators=(",", ":"))
