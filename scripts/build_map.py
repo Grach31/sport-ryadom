@@ -138,6 +138,28 @@ def pip(x, y, poly):
     return ins
 
 
+def snap_to_land(x, y, coast_pts, sea_poly):
+    """Если точка попала в море — возвращает ближайшую точку суши у берега."""
+    if not sea_poly or not pip(x, y, sea_poly):
+        return x, y
+    best, bp = 1e18, None
+    for (x0, y0), (x1, y1) in zip(coast_pts, coast_pts[1:]):
+        dx, dy = x1 - x0, y1 - y0
+        L = dx * dx + dy * dy or 1e-9
+        t = max(0.0, min(1.0, ((x - x0) * dx + (y - y0) * dy) / L))
+        px, py = x0 + t * dx, y0 + t * dy
+        d = math.hypot(x - px, y - py)
+        if d < best:
+            best, bp = d, (px, py)
+    px, py = bp
+    ux, uy = (px - x) / (best or 1.0), (py - y) / (best or 1.0)   # направление от моря к берегу
+    for off in (12, 22, 36, 60, 90):
+        nx, ny = px + ux * off, py + uy * off
+        if not pip(nx, ny, sea_poly):
+            return nx, ny
+    return px, py
+
+
 # ------------------------------------------------------------------ основная сборка
 def find_boundary():
     q = '[out:json][timeout:120];rel["boundary"="administrative"]["name"~"Хостинск"](43.2,39.3,43.9,40.4);out geom;'
@@ -229,6 +251,7 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
 
     # --- море
     sea = coast = ""
+    sea_poly, coast_pts = None, []
     chains = join_chains(coast_ways)
     if chains:
         main = max(chains, key=len)
@@ -248,6 +271,7 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
             q3 = (x0 - ax * BIG + rn[0] * BIG, y0 - ay * BIG + rn[1] * BIG)
             q4 = (x0 - ax * BIG, y0 - ay * BIG)
             sea = path_d(pts + [q1, q2, q3, q4], close=True)
+            sea_poly, coast_pts = pts + [q1, q2, q3, q4], pts
 
     # --- район
     district = path_d(dp(P(boundary), 1.0), close=True) if boundary else ""
@@ -291,30 +315,33 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
         cx = sum(a for a, _ in pts) / len(pts) if pts else sum(allx) / len(allx)
         cy = sum(b for _, b in pts) / len(pts) if pts else sum(ally) / len(ally)
         pl_out[pid] = {"x": round(cx, 1), "y": round(cy, 1), "prec": "region"}
-    # раздвигаем точки, стоящие слишком близко (одинаковые адреса)
+    # точки, попавшие в море, возвращаем на берег; близкие маркеры раздвигаем, не загоняя их в воду
     placed = []
     for pid in sorted(pl_out, key=int):
         v = pl_out[pid]
-        x, y, k = v["x"], v["y"], 0
-        while any(math.hypot(x - a, y - b) < 26 for a, b in placed) and k < 24:
+        x, y = snap_to_land(v["x"], v["y"], coast_pts, sea_poly)
+        cx, cy, k = x, y, 0
+        while (any(math.hypot(cx - a, cy - b) < 26 for a, b in placed) or (sea_poly and pip(cx, cy, sea_poly))) and k < 40:
             k += 1
             ang, rad = k * 2.4, 26 + 5 * k
-            x, y = v["x"] + rad * math.cos(ang), v["y"] + rad * math.sin(ang)
-        v["x"], v["y"] = round(x, 1), round(y, 1)
-        placed.append((x, y))
+            cx, cy = x + rad * math.cos(ang), y + rad * math.sin(ang)
+        cx, cy = snap_to_land(cx, cy, coast_pts, sea_poly)
+        v["x"], v["y"] = round(cx, 1), round(cy, 1)
+        placed.append((cx, cy))
 
     # залы и фитнес-клубы: координаты уже известны (OpenStreetMap), просто переводим в систему карты
     gy_out = {}
     for g in gyms:
         x, y = proj(g["lon"], g["lat"])
-        k = 0
-        px, py = x, y
-        while any(math.hypot(px - a, py - b) < 26 for a, b in placed) and k < 24:
+        x, y = snap_to_land(x, y, coast_pts, sea_poly)
+        cx, cy, k = x, y, 0
+        while (any(math.hypot(cx - a, cy - b) < 26 for a, b in placed) or (sea_poly and pip(cx, cy, sea_poly))) and k < 40:
             k += 1
             ang, rad = k * 2.4 + 1.0, 26 + 5 * k
-            px, py = x + rad * math.cos(ang), y + rad * math.sin(ang)
-        placed.append((px, py))
-        gy_out[str(g["id"])] = {"x": round(px, 1), "y": round(py, 1)}
+            cx, cy = x + rad * math.cos(ang), y + rad * math.sin(ang)
+        cx, cy = snap_to_land(cx, cy, coast_pts, sea_poly)
+        placed.append((cx, cy))
+        gy_out[str(g["id"])] = {"x": round(cx, 1), "y": round(cy, 1)}
 
     out = {
         "WW": WW, "WH": WH,
