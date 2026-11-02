@@ -220,12 +220,24 @@ body.started .ctrl{opacity:1}
 @media (max-width:760px){.attr{left:14px;bottom:calc(80px + env(safe-area-inset-bottom))}body.started.po .attr{opacity:0}}
 .zl{opacity:0;transition:opacity .5s}.zl.al,#world.mid .zl{opacity:1}
 #world>svg{overflow:visible}
+#bmc{position:absolute;pointer-events:none}
+#basemap{pointer-events:none}
+.grain{display:none}
+#viewport.blur #world{filter:none}
+#world{transition:none}
+.ring{display:none;animation:none}
+.mk.sel .ring{display:block;animation:ring 2.6s ease-out infinite}
+.core{box-shadow:0 0 10px var(--c),inset 0 0 8px color-mix(in srgb,var(--c) 30%,transparent)}
+.mk.sel .core{box-shadow:0 0 20px var(--c)}
+.glass{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(12,18,36,.86)}
+@media (max-width:760px){.glass,.chip{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(12,18,36,.93)}}
 </style>
 </head>
 <body>
 
 <div id="viewport" class="blur">
   <div id="world">
+    <canvas id="bmc"></canvas>
     <svg id="basemap" width="2400" height="1600" viewBox="0 0 2400 1600"></svg>
     <svg id="routeLayer" width="2400" height="1600" viewBox="0 0 2400 1600" style="pointer-events:none">
       <defs><filter id="rglow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter></defs>
@@ -311,41 +323,47 @@ const ICONS={
 const icon=t=>`<svg viewBox="0 0 24 24">${ICONS[t]}</svg>`;
 const qs=p=>encodeURIComponent(p.q);
 
-/* ================= КАРТА (из OpenStreetMap) ================= */
+/* ================= КАРТА (из OpenStreetMap): один раз рисуется в canvas, дальше это просто картинка ================= */
 (function drawMap(M){
-  const bm=document.getElementById('basemap'), wd=document.getElementById('world');
+  const wd=document.getElementById('world'), cv=document.getElementById('bmc'), bm=document.getElementById('basemap');
+  const MG=450;                                   // поля за краями района: там тоже море/фон
   wd.style.width=WW+'px';wd.style.height=WH+'px';
-  document.querySelectorAll('#world>svg').forEach(s=>{s.setAttribute('width',WW);s.setAttribute('height',WH);s.setAttribute('viewBox',`0 0 ${WW} ${WH}`)});
-  const road=(cls,w,col,op)=>M.roads[cls]?`<path d="${M.roads[cls]}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" opacity="${op||1}"/>`:'';
+  const cw=WW+2*MG, ch=WH+2*MG;
+  const ratio=Math.min(2,Math.sqrt(11e6/(cw*ch)),devicePixelRatio||1.5);
+  cv.width=Math.round(cw*ratio);cv.height=Math.round(ch*ratio);
+  cv.style.cssText=`left:${-MG}px;top:${-MG}px;width:${cw}px;height:${ch}px`;
+  const c=cv.getContext('2d');c.scale(ratio,ratio);c.translate(MG,MG);
+  const P=d=>new Path2D(d);
+  const fillP=(d,f)=>{c.fillStyle=f;c.fill(P(d))};
+  const strokeP=(d,col,w,op)=>{if(!d)return;c.globalAlpha=op||1;c.strokeStyle=col;c.lineWidth=w;c.lineCap='round';c.lineJoin='round';c.stroke(P(d));c.globalAlpha=1};
+  c.fillStyle='#0a1226';c.fillRect(-MG,-MG,cw,ch);
+  if(M.parks&&M.parks.length){const d=M.parks.join('');fillP(d,'#0a2622');strokeP(d,'rgba(61,255,154,1)',1,.16)}
+  if(M.lakes&&M.lakes.length)fillP(M.lakes.join(''),'#0b3556');
+  const rv=(M.rivers||[]);
+  strokeP(rv.filter(r=>r.k!=='river').map(r=>r.d).join(''),'#1b6aa8',1.2,.22);
+  strokeP(rv.filter(r=>r.k==='river').map(r=>r.d).join(''),'#1b6aa8',3,.55);
+  strokeP(M.roads.minor,'#101b3d',5);strokeP(M.roads.minor,'rgba(130,165,255,1)',1,.14);
+  strokeP(M.roads.mid,'#132048',9);strokeP(M.roads.mid,'rgba(130,165,255,1)',1.6,.22);
+  strokeP(M.roads.major,'#17255a',16);strokeP(M.roads.major,'#2a3f8f',2,.8);
+  strokeP(M.roads.major,'#6f8cff',2,.35);
+  if(M.district){
+    c.save();c.beginPath();c.rect(-MG,-MG,cw,ch);c.fillStyle='rgba(3,5,12,.62)';c.fill(P(`M${-MG},${-MG}H${WW+MG}V${WH+MG}H${-MG}Z ${M.district}`),'evenodd');c.restore();
+    c.save();c.shadowColor='#3dd5ff';c.shadowBlur=18;strokeP(M.district,'#3dd5ff',2.5,.8);c.restore();
+    c.save();c.setLineDash([14,10]);strokeP(M.district,'#3dd5ff',2.5,.75);c.restore();
+  }
+  if(M.sea){
+    const g=c.createLinearGradient(0,0,WW,WH);g.addColorStop(0,'#0b3556');g.addColorStop(1,'#051a33');
+    fillP(M.sea,g);
+    c.save();c.shadowColor='#35b8ff';c.shadowBlur=14;strokeP(M.coast,'#5fd0ff',2.5,.9);c.restore();
+    for(const [o,al] of [[26,.2],[62,.15],[104,.1]]){c.save();c.translate(-o,o);c.setLineDash([40,30]);strokeP(M.coast,'rgb(140,210,255)',2,al);c.restore()}
+  }
+  // подписи микрорайонов — лёгкий SVG поверх картинки
+  bm.setAttribute('width',WW);bm.setAttribute('height',WH);bm.setAttribute('viewBox',`0 0 ${WW} ${WH}`);
   const regs={};PLACES.forEach(p=>{(regs[p.reg]=regs[p.reg]||[]).push(p)});
-  const zones=Object.entries(regs).map(([r,l])=>{
+  bm.innerHTML=`<g font-family="Manrope,sans-serif" font-weight="800" fill="rgba(160,185,240,.5)" letter-spacing="6" text-anchor="middle">${Object.entries(regs).map(([r,l])=>{
     const cx=l.reduce((s,p)=>s+p.x,0)/l.length, cy=Math.min(...l.map(p=>p.y))-70, t=r.toUpperCase();
-    return `<text class="zl${r.includes('округ')?' al':''}" x="${cx}" y="${cy}" font-size="${t.length>14?26:34}">${t}</text>`}).join('');
-  bm.innerHTML=`
-  <defs>
-    <linearGradient id="sea" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b3556"/><stop offset="1" stop-color="#051a33"/></linearGradient>
-    <filter id="blur6"><feGaussianBlur stdDeviation="6"/></filter>
-  </defs>
-  <rect x="-9000" y="-9000" width="20000" height="20000" fill="#0a1226"/>
-  ${(M.parks||[]).map(d=>`<path d="${d}" fill="#0a2622" stroke="rgba(61,255,154,.16)"/>`).join('')}
-  ${(M.lakes||[]).map(d=>`<path d="${d}" fill="#0b3556" stroke="rgba(95,208,255,.4)"/>`).join('')}
-  ${(M.rivers||[]).map(r=>`<path d="${r.d}" fill="none" stroke="#1b6aa8" stroke-width="${r.k==='river'?3:1.2}" opacity="${r.k==='river'?.55:.22}" stroke-linecap="round"/>`).join('')}
-  ${road('minor',5,'#101b3d')}${road('minor',1,'rgba(130,165,255,.14)')}
-  ${road('mid',9,'#132048')}${road('mid',1.6,'rgba(130,165,255,.22)')}
-  ${road('major',16,'#17255a')}${road('major',2,'#2a3f8f',.8)}
-  ${M.roads.major?`<path class="dash" d="${M.roads.major}" fill="none" stroke="#6f8cff" stroke-width="3" stroke-dasharray="16 48" stroke-linecap="round" opacity=".7"/>`:''}
-  ${M.district?`<path d="M-9000,-9000H20000V20000H-9000Z ${M.district}" fill="rgba(3,5,12,.62)" fill-rule="evenodd"/>
-  <path d="${M.district}" fill="none" stroke="#3dd5ff" stroke-width="7" opacity=".28" filter="url(#blur6)"/>
-  <path d="${M.district}" fill="none" stroke="#3dd5ff" stroke-width="2.5" opacity=".75" stroke-dasharray="14 10"/>`:''}
-  ${M.sea?`<path d="${M.sea}" fill="url(#sea)"/>
-  <path d="${M.coast}" fill="none" stroke="#35b8ff" stroke-width="6" opacity=".5" filter="url(#blur6)"/>
-  <path d="${M.coast}" fill="none" stroke="#5fd0ff" stroke-width="2.5" opacity=".85"/>
-  <g fill="none" stroke="rgba(140,210,255,.2)" stroke-width="2" stroke-dasharray="40 30">
-    <g transform="translate(-26,26)"><path class="wave" d="${M.coast}"/></g>
-    <g transform="translate(-62,62)"><path class="wave" d="${M.coast}" style="animation-delay:-2s"/></g>
-    <g transform="translate(-104,104)"><path class="wave" d="${M.coast}" style="animation-delay:-4s"/></g>
-  </g>`:''}
-  <g font-family="Manrope,sans-serif" font-weight="800" fill="rgba(160,185,240,.5)" letter-spacing="6" text-anchor="middle">${zones}</g>`;
+    return `<text class="zl${r.includes('округ')?' al':''}" x="${cx}" y="${cy}" font-size="${t.length>14?26:34}">${t}</text>`}).join('')}</g>`;
+  document.getElementById('routeLayer').setAttribute('width',WW);document.getElementById('routeLayer').setAttribute('height',WH);
 })(MAP);
 
 /* ================= МАРКЕРЫ ================= */
@@ -392,7 +410,7 @@ function fly(to,dur=1500){
 function zoomAt(sx,sy,f){
   const cx=W/2+cam.ox, cy=H/2+cam.oy;
   const wx=cam.x+(sx-cx)/cam.s, wy=cam.y+(sy-cy)/cam.s;
-  cam.s=clamp(cam.s*f,coverS(),2.6);
+  cam.s=clamp(cam.s*f,coverS(),2.2);
   cam.x=wx-(sx-cx)/cam.s; cam.y=wy-(sy-cy)/cam.s;
   limit(); apply();
 }
