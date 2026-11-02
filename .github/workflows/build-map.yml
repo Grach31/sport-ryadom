@@ -1,0 +1,33 @@
+name: build-map
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/build_map.py
+      - data/places.json
+      - data/coords_override.json
+      - .github/workflows/build-map.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Собрать карту из OpenStreetMap
+        run: python scripts/build_map.py
+      - name: Сохранить результат
+        run: |
+          git config user.name "map-bot"
+          git config user.email "map-bot@users.noreply.github.com"
+          git add data/map.json data/geocode_cache.json
+          git diff --cached --quiet || git commit -m "Обновлена карта района [skip ci]"
+          git push
