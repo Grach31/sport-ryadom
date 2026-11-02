@@ -218,6 +218,8 @@ body.started .ctrl{opacity:1}
 .addr{color:var(--mut);font-size:13px;font-weight:600}
 .attr{position:fixed;z-index:21;left:78px;bottom:8px;font-size:10px;font-weight:600;color:rgba(138,151,184,.8);pointer-events:none}
 @media (max-width:760px){.attr{left:14px;bottom:calc(80px + env(safe-area-inset-bottom))}body.started.po .attr{opacity:0}}
+.zl{opacity:0;transition:opacity .5s}.zl.al,#world.mid .zl{opacity:1}
+#world>svg{overflow:visible}
 </style>
 </head>
 <body>
@@ -318,16 +320,16 @@ const qs=p=>encodeURIComponent(p.q);
   const regs={};PLACES.forEach(p=>{(regs[p.reg]=regs[p.reg]||[]).push(p)});
   const zones=Object.entries(regs).map(([r,l])=>{
     const cx=l.reduce((s,p)=>s+p.x,0)/l.length, cy=Math.min(...l.map(p=>p.y))-70, t=r.toUpperCase();
-    return `<text x="${cx}" y="${cy}" font-size="${t.length>14?24:34}">${t}</text>`}).join('');
+    return `<text class="zl${r.includes('округ')?' al':''}" x="${cx}" y="${cy}" font-size="${t.length>14?26:34}">${t}</text>`}).join('');
   bm.innerHTML=`
   <defs>
     <linearGradient id="sea" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b3556"/><stop offset="1" stop-color="#051a33"/></linearGradient>
     <filter id="blur6"><feGaussianBlur stdDeviation="6"/></filter>
   </defs>
-  <rect width="${WW}" height="${WH}" fill="#0a1226"/>
+  <rect x="-9000" y="-9000" width="20000" height="20000" fill="#0a1226"/>
   ${(M.parks||[]).map(d=>`<path d="${d}" fill="#0a2622" stroke="rgba(61,255,154,.16)"/>`).join('')}
   ${(M.lakes||[]).map(d=>`<path d="${d}" fill="#0b3556" stroke="rgba(95,208,255,.4)"/>`).join('')}
-  ${(M.rivers||[]).map(r=>`<path d="${r.d}" fill="none" stroke="#1b6aa8" stroke-width="${r.k==='river'?4:2}" opacity=".8" stroke-linecap="round"/>`).join('')}
+  ${(M.rivers||[]).map(r=>`<path d="${r.d}" fill="none" stroke="#1b6aa8" stroke-width="${r.k==='river'?3:1.2}" opacity="${r.k==='river'?.55:.22}" stroke-linecap="round"/>`).join('')}
   ${road('minor',5,'#101b3d')}${road('minor',1,'rgba(130,165,255,.14)')}
   ${road('mid',9,'#132048')}${road('mid',1.6,'rgba(130,165,255,.22)')}
   ${road('major',16,'#17255a')}${road('major',2,'#2a3f8f',.8)}
@@ -367,7 +369,8 @@ const coverS=()=>Math.max(W/WW,H/WH)*(isM()?.55:.85);
 function apply(){
   const cx=W/2+cam.ox, cy=H/2+cam.oy;
   world.style.transform=`translate(${cx-cam.x*cam.s}px,${cy-cam.y*cam.s}px) scale(${cam.s})`;
-  world.style.setProperty('--inv',(1/cam.s).toFixed(4));
+  world.style.setProperty('--inv',(Math.min(1,Math.max(.42,cam.s*2.2))/cam.s).toFixed(4));
+  world.classList.toggle('mid',cam.s>.9);
   world.classList.toggle('zoomed',cam.s>1.25);
 }
 function fly(to,dur=1500){
