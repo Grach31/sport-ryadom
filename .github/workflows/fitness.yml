@@ -28,4 +28,17 @@ jobs:
           git config user.email "map-bot@users.noreply.github.com"
           git add data/fitness_raw.json
           git diff --cached --quiet || git commit -m "Залы района из OpenStreetMap [skip ci]"
-          git push
+          for attempt in 1 2 3; do
+            if ! git pull --rebase origin main; then
+              git rebase --abort || true
+              echo "Rebase conflict; generated data not pushed" >&2
+              exit 1
+            fi
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt/3), retrying..." >&2
+            sleep 3
+          done
+          echo "Could not push generated data after 3 attempts" >&2
+          exit 1
