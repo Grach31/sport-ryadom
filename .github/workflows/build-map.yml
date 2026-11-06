@@ -2,6 +2,11 @@ name: build-map
 
 on:
   workflow_dispatch:
+    inputs:
+      refresh_osm:
+        description: "Скачать карту OpenStreetMap заново (1 = да)"
+        required: false
+        default: ""
   push:
     branches: [main]
     paths:
@@ -24,12 +29,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Собрать карту из OpenStreetMap
+        env:
+          REFRESH_OSM: ${{ github.event.inputs.refresh_osm }}
         run: python scripts/build_map.py
       - name: Сохранить результат
         run: |
           git config user.name "map-bot"
           git config user.email "map-bot@users.noreply.github.com"
-          git add data/map.json data/geocode_cache.json
+          git add data/map.json data/geocode_cache.json data/osm_cache.json.gz
           git diff --cached --quiet || git commit -m "Обновлена карта района [skip ci]"
           for attempt in 1 2 3; do
             if ! git pull --rebase origin main; then

@@ -4,7 +4,7 @@
 
 Ручные поправки: data/coords_override.json  ->  {"12": [43.5521, 39.8123], ...}  (id площадки: [широта, долгота])
 """
-import json, math, os, re, sys, time, urllib.parse, urllib.request
+import gzip, json, math, os, re, sys, time, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UA = "sport-ryadom/1.0 (https://github.com/Grach31/sport-ryadom)"
@@ -204,7 +204,26 @@ def find_boundary():
     return best
 
 
+OSM_CACHE = os.path.join(ROOT, "data", "osm_cache.json.gz")
+
+
 def build():
+    """Данные OpenStreetMap кэшируются в data/osm_cache.json.gz: публичные серверы Overpass бывают медленными,
+    а карта района почти не меняется. Принудительно скачать заново: REFRESH_OSM=1 (кнопка в Actions)."""
+    if os.path.exists(OSM_CACHE) and os.environ.get("REFRESH_OSM") != "1":
+        with gzip.open(OSM_CACHE, "rt", encoding="utf-8") as f:
+            c = json.load(f)
+        print("OpenStreetMap: беру из кэша", c.get("saved", "?"))
+        return tuple(c["bbox"]), c["boundary"], c["elements"]
+    bbox, boundary, elements = fetch_osm()
+    with gzip.open(OSM_CACHE, "wt", encoding="utf-8") as f:
+        json.dump({"saved": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()), "bbox": list(bbox),
+                   "boundary": boundary, "elements": elements}, f, ensure_ascii=False, separators=(",", ":"))
+    print("OpenStreetMap: скачано и сохранено в кэш")
+    return bbox, boundary, elements
+
+
+def fetch_osm():
     boundary = find_boundary()
     if boundary:
         lons = [p[0] for p in boundary]
