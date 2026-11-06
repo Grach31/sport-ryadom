@@ -329,10 +329,34 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
         v["x"], v["y"] = round(cx, 1), round(cy, 1)
         placed.append((cx, cy))
 
-    # залы и фитнес-клубы: координаты уже известны (OpenStreetMap), просто переводим в систему карты
+    # залы и фитнес-клубы: координаты либо заданы в gyms.json (lat/lon), либо находим по адресу (поле q или addr)
     gy_out = {}
     for g in gyms:
-        x, y = proj(g["lon"], g["lat"])
+        ll = None
+        if g.get("lat") is not None and g.get("lon") is not None:
+            ll = (g["lat"], g["lon"])
+        else:
+            q = g.get("q") or (("Сочи, " + g["addr"].split(";")[0]) if g.get("addr") else None)
+            if q:
+                street = re.sub(r",\s*\d+[0-9а-яА-Яa-zA-Z/–\- ]*$", "", q)
+                house = re.sub(r"(\d+[А-Яа-яA-Za-z]?)\s*[/,].*$", r"\1", q)
+                tries = []
+                for t in (q, house, street):
+                    if t and t not in tries:
+                        tries.append(t)
+                for text in tries:
+                    if text in cache:
+                        r = cache[text]
+                    else:
+                        r = nominatim(text, bbox)
+                        cache[text] = r
+                    if r:
+                        ll = (r[0], r[1])
+                        break
+        if not ll:
+            print("зал без координат, на карту не попал:", g["id"], g["name"], file=sys.stderr)
+            continue
+        x, y = proj(ll[1], ll[0])
         x, y = snap_to_land(x, y, coast_pts, sea_poly)
         cx, cy, k = x, y, 0
         while (any(math.hypot(cx - a, cy - b) < 26 for a, b in placed) or (sea_poly and pip(cx, cy, sea_poly))) and k < 40:
@@ -341,7 +365,7 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
             cx, cy = x + rad * math.cos(ang), y + rad * math.sin(ang)
         cx, cy = snap_to_land(cx, cy, coast_pts, sea_poly)
         placed.append((cx, cy))
-        gy_out[str(g["id"])] = {"x": round(cx, 1), "y": round(cy, 1)}
+        gy_out[str(g["id"])] = {"x": round(cx, 1), "y": round(cy, 1), "lat": round(ll[0], 6), "lon": round(ll[1], 6)}
 
     out = {
         "WW": WW, "WH": WH,

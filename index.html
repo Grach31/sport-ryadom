@@ -304,7 +304,7 @@ body.started .ctrl{opacity:1}
       <div><b id="n1">45</b><small>площадок</small></div>
       <div><b id="n2">28</b><small>футбол и баскетбол</small></div>
       <div><b id="n3">17</b><small>воркаут</small></div>
-      <div><b id="n4">10</b><small>залов</small></div>
+      <div><b id="n4">10</b><small>залов и клубов</small></div>
     </div>
     <button class="go" id="go">Открыть карту <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
   </div>
@@ -317,7 +317,7 @@ let PLACES, MAP, WW=2400, WH=1600;
 try{
   const [pj,mj,gj]=await Promise.all([fetch('data/places.json').then(r=>r.json()),fetch('data/map.json?'+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()}),fetch('data/gyms.json').then(r=>r.ok?r.json():[]).catch(()=>[])]);
   PLACES=pj;MAP=mj;WW=MAP.WW;WH=MAP.WH;
-  gj.forEach(g=>{if(MAP.gyms&&MAP.gyms[g.id])PLACES.push({id:g.id,name:g.name,reg:g.reg,mt:'gym',sports:['gym'],kind:g.kind,q:g.addr?('Сочи, '+g.addr):g.name,gym:g,cover:null,school:false,area:'',owner:'',equip:'',photos:[]})});
+  gj.forEach(g=>{const gm=MAP.gyms&&MAP.gyms[g.id];if(gm){if(g.lat==null){g.lat=gm.lat;g.lon=gm.lon}PLACES.push({id:g.id,name:g.name,reg:g.reg,mt:'gym',cat:g.cat||'gym',sports:[g.cat||'gym'],kind:g.kind,q:g.addr?('Сочи, '+g.addr):g.name,gym:g,cover:null,school:false,area:'',owner:'',equip:'',photos:[]})}});
 }catch(e){
   document.body.innerHTML='<div style="position:fixed;inset:0;display:grid;place-items:center;padding:30px;text-align:center;color:#8a97b8;font:600 16px Manrope,system-ui,sans-serif;background:#070b16">Карта района ещё собирается.<br>Запусти «Actions → build-map → Run workflow» в репозитории и обнови страницу.</div>';
   return;
@@ -327,14 +327,28 @@ const SPORTS={
   football:  {n:'Футбол',    c:'#3dff9a'},
   basketball:{n:'Баскетбол', c:'#ff8a3d'},
   workout:   {n:'Воркаут',   c:'#3dd5ff'},
-  gym:       {n:'Залы и фитнес', c:'#ff3dcb'}
+  gym:       {n:'Залы и фитнес', c:'#ff3dcb'},
+  pool:      {n:'Бассейны', c:'#4d7cff'},
+  fight:     {n:'Единоборства', c:'#ff5d5d'},
+  yoga:      {n:'Йога и пилатес', c:'#a58bff'},
+  school:    {n:'Спортшколы и комплексы', c:'#ffd23d'},
+  other:     {n:'Прочее', c:'#8fa3c7'}
 };
 const MT={multi:{n:'Футбол и баскетбол',c:'#3dff9a'},workout:{n:'Воркаут',c:'#3dd5ff'},gym:{n:'Зал / фитнес-клуб',c:'#ff3dcb'}};
 const ICONS={
   multi:'<circle cx="12" cy="12" r="9"/><path d="M12 8l3.2 2.3-1.2 3.8h-4l-1.2-3.8z"/><path d="M12 3v5M15.2 10.3l4.6-1.6M14 14.1l2.8 3.9M10 14.1l-2.8 3.9M8.8 10.3L4.2 8.7"/>',
   workout:'<path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>',
-  gym:'<path d="M3 12h3.5l2-5.5 3.5 11 2.5-8 1.5 2.5H21"/>'
+  gym:'<path d="M3 12h3.5l2-5.5 3.5 11 2.5-8 1.5 2.5H21"/>',
+  pool:'<circle cx="16" cy="5.5" r="1.8"/><path d="M7 11l4-3 3 3.5 3.500 1M2.500 16c2 0 2-1.800 4.500-1.800s2.500 1.800 5 1.800 2.500-1.800 5-1.800 2.500 1.800 4.500 1.800M2.500 20.500c2 0 2-1.800 4.500-1.800s2.500 1.800 5 1.800 2.500-1.800 5-1.800 2.500 1.800 4.500 1.800"/>',
+  fight:'<path d="M7 11V8a4 4 0 0 1 4-4h2.500a4 4 0 0 1 4 4v5a5 5 0 0 1-5 5H10a3 3 0 0 1-3-3z"/><path d="M8 20.500h8M10 18v2.500M7 10h4"/>',
+  yoga:'<circle cx="12" cy="5" r="2"/><path d="M12 8v4.500M5 12.500c2.500.5 4.500 1.500 7 1.500s4.500-1 7-1.500M6 19c3-.5 4.500-2.500 6-5 1.500 2.500 3 4.500 6 5"/>',
+  school:'<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.500 20h7M10 17h4"/>',
+  other:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.500"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>'
 };
+/* категория зала/клуба: цвет и значок по полю cat (gym — «Залы и фитнес») */
+const gcat=p=>p.mt==='gym'?(SPORTS[p.cat]?p.cat:'gym'):p.mt;
+const sty=p=>p.mt==='gym'?{n:SPORTS[gcat(p)].n,c:SPORTS[gcat(p)].c}:MT[p.mt];
+const ikey=p=>p.mt==='gym'?gcat(p):p.mt;
 const icon=t=>`<svg viewBox="0 0 24 24">${ICONS[t]}</svg>`;
 const qs=p=>encodeURIComponent(p.q);
 
@@ -385,8 +399,8 @@ const qs=p=>encodeURIComponent(p.q);
 const world=document.getElementById('world'), viewport=document.getElementById('viewport'), markersEl=document.getElementById('markers');
 let html='';
 PLACES.forEach((p,i)=>{
-  const s=MT[p.mt];
-  html+=`<div class="mk" data-id="${p.id}" style="left:${p.x}px;top:${p.y}px;--c:${s.c};--d:${900+i*45}ms"><div class="mk-in"><div class="pop"><span class="ring"></span><span class="ring r2"></span><span class="core">${icon(p.mt)}</span><span class="lbl">${p.name}</span></div></div></div>`;
+  const s=sty(p);
+  html+=`<div class="mk" data-id="${p.id}" style="left:${p.x}px;top:${p.y}px;--c:${s.c};--d:${900+i*45}ms"><div class="mk-in"><div class="pop"><span class="ring"></span><span class="ring r2"></span><span class="core">${icon(ikey(p))}</span><span class="lbl">${p.name}</span></div></div></div>`;
 });
 markersEl.innerHTML=html;
 
@@ -483,8 +497,8 @@ function update(){
   const word=n=>{const m=n%10,c=n%100;return c>10&&c<15?'площадок':m===1?'площадка':m>1&&m<5?'площадки':'площадок'};
   document.getElementById('lcount').textContent=shown.length+' '+word(shown.length);
   document.getElementById('mcount').textContent=shown.length+' '+word(shown.length);
-  listEl.innerHTML=shown.length?shown.map(p=>{const s=MT[p.mt];
-    return `<button class="it ${p.id===selId?'sel':''}" data-id="${p.id}" style="--c:${s.c}"><span class="ic">${icon(p.mt)}</span><span class="tx"><b>${p.name}</b><i>${p.reg} · ${p.mt==='workout'?'Воркаут':p.mt==='gym'?p.kind:'Футбол и баскетбол'}</i></span><span class="tg">${p.mt==='gym'?'Зал':p.area+' м²'}</span></button>`}).join(''):
+  listEl.innerHTML=shown.length?shown.map(p=>{const s=sty(p);
+    return `<button class="it ${p.id===selId?'sel':''}" data-id="${p.id}" style="--c:${s.c}"><span class="ic">${icon(ikey(p))}</span><span class="tx"><b>${p.name}</b><i>${p.reg} · ${p.mt==='workout'?'Воркаут':p.mt==='gym'?p.kind:'Футбол и баскетбол'}</i></span><span class="tg">${p.mt==='gym'?({gym:'Зал',pool:'Бассейн',fight:'Бой',yoga:'Йога',school:'Секции',other:'Клуб'}[gcat(p)]||'Зал'):p.area+' м²'}</span></button>`}).join(''):
     `<div class="empty">Ничего не найдено.<br>Попробуй убрать часть фильтров.</div>`;
 }
 listEl.addEventListener('click',e=>{const b=e.target.closest('.it');if(b)select(+b.dataset.id)});
@@ -512,14 +526,14 @@ const I={
   car:'<svg viewBox="0 0 24 24"><path d="M4 16V12l2-5h12l2 5v4M4 16h16M4 16v2.500M20 16v2.500M3.500 12h17"/><circle cx="7.500" cy="14" r=".6"/><circle cx="16.500" cy="14" r=".6"/></svg>'
 };
 function showGymCard(p){
-  const g=p.gym, s=MT.gym;
+  const g=p.gym, s=sty(p);
   const lat=g.lat,lon=g.lon;
   const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
   const site=g.website?`<div class="wide"><small>Сайт</small><b><a class="lnk" href="${g.website}" target="_blank" rel="noopener">${g.website.replace(/^https?:\/\//,'').replace(/\/$/,'')}</a></b></div>`:'';
   vcard.innerHTML=`
   <div class="nav"><button id="cback">${I.back}Все площадки</button><button class="sq" id="cx" title="Закрыть">${I.x}</button></div>
   <div class="cardwrap">
-    <div class="photo gymhead" style="--c:${s.c}"><svg viewBox="0 0 24 24">${ICONS.gym}</svg><div class="badge"><span><i></i>${esc(p.reg)}</span><span>${esc(g.kind)}</span></div></div>
+    <div class="photo gymhead" style="--c:${s.c}"><svg viewBox="0 0 24 24">${ICONS[ikey(p)]}</svg><div class="badge"><span><i></i>${esc(p.reg)}</span><span>${esc(g.kind)}</span></div></div>
     <div class="cbody">
       <h2>${esc(p.name)}</h2>
       <div class="sub">${esc(g.kind)}${g.addr?' · '+esc(g.addr):''}</div>
