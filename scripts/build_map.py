@@ -138,6 +138,29 @@ def pip(x, y, poly):
     return ins
 
 
+def nearest_inside(x, y, poly):
+    """ближайшая к точке (x, y) точка на границе района, сдвинутая на несколько пикселей внутрь"""
+    best, bp = 1e18, (x, y)
+    n = len(poly)
+    for i in range(n):
+        (x1, y1), (x2, y2) = poly[i], poly[(i + 1) % n]
+        dx, dy = x2 - x1, y2 - y1
+        L = dx * dx + dy * dy
+        t = 0 if L == 0 else max(0, min(1, ((x - x1) * dx + (y - y1) * dy) / L))
+        px, py = x1 + t * dx, y1 + t * dy
+        d = (x - px) ** 2 + (y - py) ** 2
+        if d < best:
+            best, bp = d, (px, py)
+    px, py = bp
+    d = math.sqrt(best) or 1.0
+    ux, uy = (px - x) / d, (py - y) / d          # от исходной точки к границе и дальше внутрь
+    for off in (4, 7, 12, 20):
+        nx, ny = px + ux * off, py + uy * off
+        if pip(nx, ny, poly):
+            return nx, ny
+    return px, py
+
+
 def snap_to_land(x, y, coast_pts, sea_poly):
     """Если точка попала в море — возвращает ближайшую точку суши у берега."""
     if not sea_poly or not pip(x, y, sea_poly):
@@ -368,6 +391,8 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
             print("зал без координат, на карту не попал:", g["id"], g["name"], file=sys.stderr)
             continue
         x, y = proj(ll[1], ll[0])
+        if g.get("pin_inside") and dist_poly and not pip(x, y, dist_poly):
+            x, y = nearest_inside(x, y, dist_poly)   # адрес на самой границе: маркер ставим чуть внутрь района
         x, y = snap_to_land(x, y, coast_pts, sea_poly)
         cx, cy, k = x, y, 0
         inside0 = bool(dist_poly and pip(x, y, dist_poly))
