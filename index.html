@@ -790,7 +790,6 @@ function showGymCard(p){
         ${g.hours?`<div class="wide"><small>Часы работы</small><b>${esc(g.hours)}</b>${(o=>o.st==='unk'?'':`<span class="stl st ${o.st}">${o.txt}</span>`)(openInfo(g.hours))}</div>`:''}
         ${g.phone?`<div class="wide"><small>Телефон</small><b>${phones(g.phone).map(n=>`<a class="lnk" href="tel:${n.replace(/[^+\d]/g,'')}">${esc(n)}</a>`).join('<br>')}</b></div>`:''}
         ${g.price?`<div class="wide"><small>Цены</small><b>${esc(g.price)}</b></div>`:''}
-        ${site}
       </div>
       <p class="desc">${esc(g.desc)}</p>
       <p class="desc" style="font-size:12px;opacity:.7">Данные: ${esc(g.src)}. Часы, цены и телефон лучше уточнить у клуба.</p>
