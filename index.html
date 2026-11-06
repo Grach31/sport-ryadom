@@ -273,6 +273,44 @@ body.started .ctrl{opacity:1}
 @keyframes nbusy{50%{transform:scale(.9)}}
 #toast{position:fixed;z-index:90;left:50%;top:calc(76px + env(safe-area-inset-top));transform:translate(-50%,-14px);max-width:calc(100vw - 32px);padding:11px 16px;border-radius:14px;background:rgba(12,18,36,.96);border:1px solid var(--line);color:#fff;font-size:13px;font-weight:700;text-align:center;opacity:0;pointer-events:none;transition:.3s;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 #toast.show{opacity:1;transform:translate(-50%,0)}
+
+.chip s{text-decoration:none;opacity:.7;margin-left:1px;font-size:16px;line-height:1}
+.fbtn svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round}
+.fn{background:#3dff9a;color:#04101c;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:800}
+#fsh{position:fixed;inset:0;z-index:80;visibility:hidden;pointer-events:none}
+#fsh.show{visibility:visible;pointer-events:auto}
+.fbg{position:absolute;inset:0;background:rgba(3,6,14,.5);opacity:0;transition:opacity .25s}
+#fsh.show .fbg{opacity:1}
+.fcard{position:absolute;left:20px;top:128px;width:430px;max-height:calc(100vh - 150px);display:flex;flex-direction:column;border-radius:22px;padding:16px 16px 14px;opacity:0;transform:translateY(10px);transition:.25s}
+#fsh.show .fcard{opacity:1;transform:none}
+.fgrab{display:none}
+.fh{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.fh h3{flex:1;font-size:18px}
+.frs{font-size:13px;font-weight:700;color:var(--mut);padding:8px 10px}
+.fh .lx{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.08)}
+.fh .lx svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round}
+.fb{overflow-y:auto;overscroll-behavior:contain;padding-right:2px;flex:1}
+.fb h4{margin:14px 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.fg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ft{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);text-align:left;transition:.2s}
+.ft .ic{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:10px;background:color-mix(in srgb,var(--c) 16%,transparent)}
+.ft .ic svg{width:18px;height:18px;fill:none;stroke:var(--c);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ft b{flex:1;font-size:13px;line-height:1.2}
+.ft i{font-style:normal;font-size:12px;font-weight:700;color:var(--mut)}
+.ft.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 20%,#0b1226);box-shadow:0 0 16px color-mix(in srgb,var(--c) 30%,transparent)}
+.ft.on i{color:#fff}
+.fx2{display:flex;flex-wrap:wrap;gap:8px}
+.fo{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:14px;font-weight:700}
+.fo u{width:38px;height:22px;border-radius:99px;background:rgba(255,255,255,.14);position:relative;transition:.2s}
+.fo u:after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.fo.on u{background:var(--c)}.fo.on u:after{left:19px;background:#04101c}
+.fok{margin-top:12px;padding:14px;border-radius:15px;background:linear-gradient(90deg,#3dff9a,#3dd5ff);color:#04101c;font-weight:800;font-size:15px}
+@media (max-width:760px){
+  .fcard{left:0;right:0;top:auto;bottom:0;width:auto;max-height:82vh;border-radius:24px 24px 0 0;padding:10px 14px calc(14px + env(safe-area-inset-bottom));transform:translateY(100%);opacity:1}
+  #fsh.show .fcard{transform:none}
+  .fcard{max-height:90vh}.fb h4{margin:10px 0 6px}.fg{gap:6px}.ft{padding:7px 10px;gap:8px}.ft .ic{width:26px;height:26px}.ft b{font-size:12.5px}.fo{padding:8px 11px;font-size:13px}.fok{padding:12px;margin-top:10px}
+  .fgrab{display:block;width:40px;height:4px;border-radius:4px;background:rgba(255,255,255,.25);margin:0 auto 10px}
+}
 </style>
 </head>
 <body>
@@ -351,7 +389,7 @@ let PLACES, MAP, WW=2400, WH=1600;
 try{
   const [pj,mj,gj]=await Promise.all([fetch('data/places.json?'+Date.now()).then(r=>r.json()),fetch('data/map.json?'+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()}),fetch('data/gyms.json?'+Date.now()).then(r=>r.ok?r.json():[]).catch(()=>[])]);
   PLACES=pj;MAP=mj;WW=MAP.WW;WH=MAP.WH;
-  gj.forEach(g=>{const gm=MAP.gyms&&MAP.gyms[g.id];if(gm){if(g.lat==null){g.lat=gm.lat;g.lon=gm.lon}PLACES.push({id:g.id,name:g.name,reg:g.reg,mt:'gym',cat:g.cat||'gym',sports:[g.cat||'gym'],kind:g.kind,q:g.addr?('Сочи, '+g.addr):g.name,gym:g,cover:null,school:false,area:'',owner:'',equip:'',photos:[]})}});
+  gj.forEach(g=>{const gm=MAP.gyms&&MAP.gyms[g.id];if(gm){if(g.lat==null){g.lat=gm.lat;g.lon=gm.lon}PLACES.push({id:g.id,name:g.name,reg:g.reg,mt:'gym',cat:g.cat||'gym',sports:[g.cat||'gym',...(g.also||[])],kind:g.kind,q:g.addr?('Сочи, '+g.addr):g.name,gym:g,cover:null,school:false,area:'',owner:'',equip:'',photos:[]})}});
 }catch(e){
   document.body.innerHTML='<div style="position:fixed;inset:0;display:grid;place-items:center;padding:30px;text-align:center;color:#8a97b8;font:600 16px Manrope,system-ui,sans-serif;background:#070b16">Карта района ещё собирается.<br>Запусти «Actions → build-map → Run workflow» в репозитории и обнови страницу.</div>';
   return;
@@ -366,8 +404,12 @@ const SPORTS={
   fight:     {n:'Единоборства', c:'#ff5d5d'},
   yoga:      {n:'Йога и пилатес', c:'#a58bff'},
   school:    {n:'Спортшколы и комплексы', c:'#ffd23d'},
+  tennis:    {n:'Теннис', c:'#d9ff4d'},
+  skate:     {n:'Скейт-парки', c:'#2dd4bf'},
+  run:       {n:'Бег и стадионы', c:'#ff9eb5'},
   other:     {n:'Прочее', c:'#8fa3c7'}
 };
+const OUT=new Set(['football','tennis','skate','run']), isIn=p=>p.mt==='gym'&&!OUT.has(p.cat);
 const MT={multi:{n:'Футбол и баскетбол',c:'#3dff9a'},workout:{n:'Воркаут',c:'#3dd5ff'},gym:{n:'Зал / фитнес-клуб',c:'#ff3dcb'}};
 const ICONS={
   multi:'<circle cx="12" cy="12" r="9"/><path d="M12 8l3.2 2.3-1.2 3.8h-4l-1.2-3.8z"/><path d="M12 3v5M15.2 10.3l4.6-1.6M14 14.1l2.8 3.9M10 14.1l-2.8 3.9M8.8 10.3L4.2 8.7"/>',
@@ -377,6 +419,11 @@ const ICONS={
   fight:'<path d="M7 11V8a4 4 0 0 1 4-4h2.500a4 4 0 0 1 4 4v5a5 5 0 0 1-5 5H10a3 3 0 0 1-3-3z"/><path d="M8 20.500h8M10 18v2.500M7 10h4"/>',
   yoga:'<circle cx="12" cy="5" r="2"/><path d="M12 8v4.500M5 12.500c2.500.5 4.500 1.500 7 1.500s4.500-1 7-1.500M6 19c3-.5 4.500-2.500 6-5 1.500 2.500 3 4.500 6 5"/>',
   school:'<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.500 20h7M10 17h4"/>',
+  basketball:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.600 5.600c3 2.500 3 10.300 0 12.800M18.400 5.600c-3 2.500-3 10.300 0 12.800"/>',
+  tennis:'<circle cx="12" cy="12" r="9"/><path d="M4.5 7.500c4 1.500 4 7.500 0 9M19.500 7.500c-4 1.500-4 7.500 0 9"/>',
+  skate:'<path d="M3 8c3 0 3.500 8 9 8s6-8 9-8M3 20h18"/>',
+  run:'<circle cx="15" cy="4.500" r="1.800"/><path d="M8 21l3-5-2.500-2.500 2-4.500 3.500 1.500 2.500 3M11.500 9l-4 1 .5 3M12 16l3 1.500.500 3.500"/>',
+  football:'<circle cx="12" cy="12" r="9"/><path d="M12 8l3.200 2.300-1.200 3.800h-4l-1.200-3.800z"/><path d="M12 3v5M15.200 10.300l4.600-1.600M14 14.100l2.800 3.900M10 14.100l-2.800 3.900M8.800 10.300L4.200 8.700"/>',
   other:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.500"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>'
 };
 /* категория зала/клуба: цвет и значок по полю cat (gym — «Залы и фитнес») */
@@ -615,25 +662,55 @@ function stLine(p){const o=openOf(p);return o.st==='unk'?(state.open?'<i><em cla
 let toastT;function toast(t){let e=document.getElementById('toast');if(!e){e=document.createElement('div');e.id='toast';document.body.appendChild(e)}e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),3600)}
 
 const chipsEl=document.getElementById('chips');
-chipsEl.innerHTML=
- `<button class="chip on" data-k="all"><i></i>Все</button>`+
- Object.entries(SPORTS).map(([k,s])=>`<button class="chip" data-k="${k}" style="--c:${s.c}"><i></i>${s.n}</button>`).join('')+
- `<span class="chip sep"></span><button class="chip" data-k="free" style="--c:#3dff9a"><i></i>С покрытием</button><button class="chip" data-k="light" style="--c:#ffd23d"><i></i>У школы</button><span class="chip sep"></span><button class="chip" data-k="open" style="--c:#3dff9a"><i></i>Открыто сейчас</button>`;
+const GROUPS=[{n:'Уличные площадки',k:['football','basketball','tennis','workout','skate','run']},{n:'Залы и фитнес',k:['gym','yoga']},{n:'Вода и единоборства',k:['pool','fight']},{n:'Прочее',k:['school','other']}];
+const catCount=k=>PLACES.filter(p=>p.sports.includes(k)).length;
+const chipHtml=(k,label,c,on,x)=>`<button class="chip${on?' on':''}" data-k="${k}" style="--c:${c}"><i></i>${label}${x?'<s>×</s>':''}</button>`;
+function renderTop(){
+  const n=state.sports.size+(state.free?1:0)+(state.light?1:0);
+  let h=`<button class="chip${n?'':' on'}" data-k="all" style="--c:#fff"><i></i>Все</button>`+
+   `<button class="chip fbtn" data-k="filters"><svg viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.200"/><circle cx="8" cy="17" r="2.200"/></svg>Фильтры${n?`<b class="fn">${n}</b>`:''}</button>`+
+   '';
+  state.sports.forEach(k=>h+=chipHtml(k,SPORTS[k].n,SPORTS[k].c,true,true));
+  if(state.free)h+=chipHtml('free','С покрытием','#3dff9a',true,true);
+  if(state.light)h+=chipHtml('light','У школы','#ffd23d',true,true);
+  h+=chipHtml('open','Открыто сейчас','#3dff9a',state.open,false);
+  chipsEl.innerHTML=h;
+}
+/* шторка с категориями */
+const fsh=document.createElement('div');fsh.id='fsh';
+fsh.innerHTML=`<div class="fbg"></div><div class="fcard glass"><div class="fgrab"></div>
+ <div class="fh"><h3>Фильтры</h3><button class="frs" id="frs">Сбросить</button><button class="lx" id="fx" aria-label="Закрыть"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+ <div class="fb">`+GROUPS.map(g=>`<h4>${g.n}</h4><div class="fg">`+g.k.filter(catCount).map(k=>`<button class="ft" data-k="${k}" style="--c:${SPORTS[k].c}"><span class="ic">${icon(k)}</span><b>${SPORTS[k].n}</b><i>${catCount(k)}</i></button>`).join('')+`</div>`).join('')+
+ `<h4>Дополнительно</h4><div class="fx2"><button class="fo" data-k="open" style="--c:#3dff9a"><span>Открыто сейчас</span><u></u></button><button class="fo" data-k="free" style="--c:#3dff9a"><span>С покрытием</span><u></u></button><button class="fo" data-k="light" style="--c:#ffd23d"><span>У школы</span><u></u></button></div>
+ </div><button class="fok" id="fok">Показать</button></div>`;
+document.body.appendChild(fsh);
+function syncChips(){
+  renderTop();
+  fsh.querySelectorAll('.ft').forEach(t=>t.classList.toggle('on',state.sports.has(t.dataset.k)));
+  fsh.querySelectorAll('.fo').forEach(t=>t.classList.toggle('on',!!state[t.dataset.k]));
+  const n=PLACES.filter(vis).length;
+  document.getElementById('fok').textContent=n?`Показать: ${n}`:'Ничего не найдено';
+}
+function openSheet(){syncChips();fsh.classList.add('show')}
+function closeSheet(){if(!fsh.classList.contains('show'))return;fsh.classList.remove('show');clearTimeout(window._ft);window._ft=setTimeout(fitShown,200)}
+function toggleF(k){
+  if(k==='open'||k==='free'||k==='light')state[k]=!state[k];
+  else state.sports.has(k)?state.sports.delete(k):state.sports.add(k);
+}
 chipsEl.addEventListener('click',e=>{
   const b=e.target.closest('.chip');if(!b||!b.dataset.k)return;const k=b.dataset.k;
-  if(k==='all')state.sports.clear();
-  else if(k==='free')state.free=!state.free;
-  else if(k==='light')state.light=!state.light;
-  else if(k==='open')state.open=!state.open;
-  else state.sports.has(k)?state.sports.delete(k):state.sports.add(k);
+  if(k==='filters'){openSheet();return}
+  if(k==='all'){state.sports.clear();state.free=state.light=state.open=false}
+  else toggleF(k);
   syncChips();update();fitShown();
 });
-function syncChips(){
-  chipsEl.querySelectorAll('.chip').forEach(c=>{
-    const k=c.dataset.k;if(!k)return;
-    c.classList.toggle('on',k==='all'?state.sports.size===0:k==='free'?state.free:k==='light'?state.light:k==='open'?state.open:state.sports.has(k));
-  });
-}
+fsh.addEventListener('click',e=>{
+  if(e.target.closest('.fbg')||e.target.closest('#fx')||e.target.closest('#fok')){closeSheet();return}
+  if(e.target.closest('#frs')){state.sports.clear();state.free=state.light=state.open=false;syncChips();update();return}
+  const t=e.target.closest('.ft,.fo');if(!t)return;
+  toggleF(t.dataset.k);syncChips();update();
+});
+window.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
 document.getElementById('q').addEventListener('input',e=>{state.q=e.target.value.trim().toLowerCase();update();clearTimeout(window._ft);window._ft=setTimeout(fitShown,350)});
 const vis=p=>(!state.sports.size||p.sports.some(s=>state.sports.has(s)))&&(!state.free||p.cover)&&(!state.light||p.school)&&(!state.open||openOf(p).st!=='closed')&&(!state.q||(p.name+' '+p.kind+' '+p.reg+' '+p.owner+' '+p.sports.map(s=>SPORTS[s].n).join(' ')).toLowerCase().includes(state.q));
 const listEl=document.getElementById('list'), vlist=document.getElementById('vlist'), vcard=document.getElementById('vcard'), panel=document.getElementById('panel');
@@ -647,7 +724,7 @@ function update(){
   document.getElementById('lcount').textContent=shown.length+' '+word(shown.length);
   document.getElementById('mcount').textContent=shown.length+' '+word(shown.length);
   listEl.innerHTML=shown.length?shown.map(p=>{const s=sty(p);
-    return `<button class="it ${p.id===selId?'sel':''}" data-id="${p.id}" style="--c:${s.c}"><span class="ic">${icon(ikey(p))}</span><span class="tx"><b>${p.name}</b><i>${p.reg} · ${p.mt==='workout'?'Воркаут':p.mt==='gym'?p.kind:'Футбол и баскетбол'}</i>${stLine(p)}</span><span class="tg">${state.near&&me?fmtD(distM(p)):p.mt==='gym'?({gym:'Зал',pool:'Бассейн',fight:'Бой',yoga:'Йога',school:'Секции',other:'Клуб'}[gcat(p)]||'Зал'):p.area+' м²'}</span></button>`}).join(''):
+    return `<button class="it ${p.id===selId?'sel':''}" data-id="${p.id}" style="--c:${s.c}"><span class="ic">${icon(ikey(p))}</span><span class="tx"><b>${p.name}</b><i>${p.reg} · ${p.mt==='workout'?'Воркаут':p.mt==='gym'?p.kind:'Футбол и баскетбол'}</i>${stLine(p)}</span><span class="tg">${state.near&&me?fmtD(distM(p)):p.mt==='gym'?({gym:'Зал',pool:'Бассейн',fight:'Бой',yoga:'Йога',school:'Секции',other:'Клуб',tennis:'Теннис',skate:'Скейт',run:'Бег',football:'Футбол'}[gcat(p)]||'Зал'):p.area+' м²'}</span></button>`}).join(''):
     `<div class="empty">Ничего не найдено.<br>Попробуй убрать часть фильтров.</div>`;
 }
 listEl.addEventListener('click',e=>{const b=e.target.closest('.it');if(b)select(+b.dataset.id)});
@@ -817,7 +894,7 @@ function resetIntro(){
   buildTitle();
   intro.querySelectorAll('.kick,.lead,.stats,.go').forEach(el=>{el.style.animation='none';el.offsetHeight;el.style.animation=''});
   intro.classList.remove('hide');
-  count(document.getElementById('n1'),PLACES.filter(p=>p.mt!=='gym').length);count(document.getElementById('n2'),PLACES.filter(p=>p.mt==='multi').length);count(document.getElementById('n3'),PLACES.filter(p=>p.mt==='workout').length);count(document.getElementById('n4'),PLACES.filter(p=>p.mt==='gym').length);
+  count(document.getElementById('n1'),PLACES.filter(p=>!isIn(p)).length);count(document.getElementById('n2'),PLACES.filter(p=>p.mt==='multi').length);count(document.getElementById('n3'),PLACES.filter(p=>p.mt==='workout').length);count(document.getElementById('n4'),PLACES.filter(isIn).length);
 }
 async function start(){
   intro.classList.add('hide');document.body.classList.add('started');
@@ -889,7 +966,7 @@ window.addEventListener('keydown',e=>{if(e.key==='Escape'&&selId)closeCard(true)
 window.addEventListener('resize',()=>{measure();apply()});
 
 /* ================= СТАРТ ================= */
-measure();if(isM())document.getElementById('q').placeholder='Поиск';update();resetIntro();
+measure();if(isM())document.getElementById('q').placeholder='Поиск';update();syncChips();resetIntro();
 {const hm0=location.hash.match(/^#p(\d+)$/);
  if(hm0&&PLACES.some(p=>p.id===+hm0[1])){
   intro.classList.add('hide');document.body.classList.add('started');viewport.classList.remove('blur');world.classList.add('live');
