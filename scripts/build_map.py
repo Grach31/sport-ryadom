@@ -275,6 +275,16 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
 
     # --- район
     district = path_d(dp(P(boundary), 1.0), close=True) if boundary else ""
+    dist_poly = P(boundary) if boundary else None
+    MIN_GAP = 9   # маркеры почти не раздвигаем: близкие на карте объединяет в кружок сам сайт (index.html)
+
+    def bad_spot(cx, cy, inside0, placed):
+        """точка занята другим маркером, лежит в море или (если исходная была в районе) вышла за границу района"""
+        if any(math.hypot(cx - a, cy - b) < MIN_GAP for a, b in placed):
+            return True
+        if sea_poly and pip(cx, cy, sea_poly):
+            return True
+        return bool(inside0 and dist_poly and not pip(cx, cy, dist_poly))
 
     # --- площадки
     pl_out = {}
@@ -321,9 +331,10 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
         v = pl_out[pid]
         x, y = snap_to_land(v["x"], v["y"], coast_pts, sea_poly)
         cx, cy, k = x, y, 0
-        while (any(math.hypot(cx - a, cy - b) < 26 for a, b in placed) or (sea_poly and pip(cx, cy, sea_poly))) and k < 40:
+        inside0 = bool(dist_poly and pip(x, y, dist_poly))
+        while bad_spot(cx, cy, inside0, placed) and k < 60:
             k += 1
-            ang, rad = k * 2.4, 26 + 5 * k
+            ang, rad = k * 2.4, MIN_GAP + 3 * k
             cx, cy = x + rad * math.cos(ang), y + rad * math.sin(ang)
         cx, cy = snap_to_land(cx, cy, coast_pts, sea_poly)
         v["x"], v["y"] = round(cx, 1), round(cy, 1)
@@ -359,9 +370,10 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
         x, y = proj(ll[1], ll[0])
         x, y = snap_to_land(x, y, coast_pts, sea_poly)
         cx, cy, k = x, y, 0
-        while (any(math.hypot(cx - a, cy - b) < 26 for a, b in placed) or (sea_poly and pip(cx, cy, sea_poly))) and k < 40:
+        inside0 = bool(dist_poly and pip(x, y, dist_poly))
+        while bad_spot(cx, cy, inside0, placed) and k < 60:
             k += 1
-            ang, rad = k * 2.4 + 1.0, 26 + 5 * k
+            ang, rad = k * 2.4 + 1.0, MIN_GAP + 3 * k
             cx, cy = x + rad * math.cos(ang), y + rad * math.sin(ang)
         cx, cy = snap_to_land(cx, cy, coast_pts, sea_poly)
         placed.append((cx, cy))

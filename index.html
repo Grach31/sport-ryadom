@@ -232,6 +232,13 @@ body.started .ctrl{opacity:1}
 .glass{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(12,18,36,.86)}
 @media (max-width:760px){.glass,.chip{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(12,18,36,.93)}}
 .mk{contain:layout style}
+.mk.cg{visibility:hidden;pointer-events:none}
+#clusters .ck{position:absolute;width:0;height:0;cursor:pointer;z-index:4;opacity:0}
+#world.live #clusters .ck{opacity:1;transition:opacity .3s}
+.ck .core{inset:2px;border-width:2.5px;background:#0a1124}
+.ck .core b{font:800 15px/1 var(--f-head);color:#fff;letter-spacing:0}
+.ck:hover .core{transform:scale(1.12)}
+.ck:before{content:"";position:absolute;left:-30px;top:-30px;width:60px;height:60px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--c) 28%,transparent),transparent 70%);transform:scale(var(--inv,1));pointer-events:none}
 #world{backface-visibility:hidden}
 
 .emblem{position:fixed;z-index:60;right:24px;top:16px;height:54px;width:auto;pointer-events:none;filter:drop-shadow(0 4px 14px rgba(0,0,0,.5))}
@@ -413,7 +420,7 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function measure(){W=viewport.clientWidth;H=viewport.clientHeight}
 const coverS=()=>Math.max(W/WW,H/WH)*(isM()?.55:.85);
-let lastS=-1;
+let lastS=-1;var clOn=false;
 function apply(){
   const cx=W/2+cam.ox, cy=H/2+cam.oy;
   world.style.transform=`translate3d(${(cx-cam.x*cam.s).toFixed(1)}px,${(cy-cam.y*cam.s).toFixed(1)}px,0) scale(${cam.s})`;
@@ -423,6 +430,7 @@ function apply(){
     world.classList.toggle('mid',cam.s>.9);
     world.classList.toggle('zoomed',cam.s>1.25);
   }
+  if(clOn)recluster();
 }
 function fly(to,dur=1500){
   const id=++animId, from={...cam};
@@ -466,6 +474,45 @@ const up=e=>{ptrs.delete(e.pointerId);pinch=0};
 window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);
 viewport.addEventListener('wheel',e=>{e.preventDefault();animId++;zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*.0015))},{passive:false});
 
+/* ================= ГРУППЫ МАРКЕРОВ (кружок с числом) ================= */
+const clEl=document.createElement('div');clEl.id='clusters';markersEl.after(clEl);
+const mkEls=new Map();let clS=-1;
+function recluster(force){
+  if(!force&&Math.abs(cam.s-clS)<.012)return;
+  clS=cam.s;
+  if(!mkEls.size)markersEl.querySelectorAll('.mk').forEach(m=>mkEls.set(+m.dataset.id,m));
+  const TH=(cam.s>=1.4?15:cam.s>=.9?30:36)/cam.s;          // порог слияния: пиксели экрана → единицы карты
+  const items=PLACES.filter(p=>vis(p)&&p.id!==selId);
+  const used=new Set(),groups=[];
+  items.forEach(a=>{
+    if(used.has(a.id))return;
+    const g=[a];used.add(a.id);
+    items.forEach(b=>{if(!used.has(b.id)&&Math.hypot(a.x-b.x,a.y-b.y)<TH){g.push(b);used.add(b.id)}});
+    groups.push(g);
+  });
+  const grouped=new Set();let html='';
+  groups.forEach(g=>{
+    if(g.length<2)return;
+    g.forEach(p=>grouped.add(p.id));
+    const x=g.reduce((t,p)=>t+p.x,0)/g.length,y=g.reduce((t,p)=>t+p.y,0)/g.length;
+    const cols=new Set(g.map(p=>sty(p).c));
+    html+=`<div class="ck" data-ids="${g.map(p=>p.id).join(',')}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;--c:${cols.size===1?[...cols][0]:'#3dd5ff'}"><div class="mk-in"><span class="core"><b>${g.length}</b></span></div></div>`;
+  });
+  mkEls.forEach((el,id)=>el.classList.toggle('cg',grouped.has(id)));
+  clEl.innerHTML=html;
+}
+clEl.addEventListener('click',e=>{
+  if(moved>6)return;const c=e.target.closest('.ck');if(!c)return;
+  const ids=new Set(c.dataset.ids.split(',').map(Number)),list=PLACES.filter(p=>ids.has(p.id));
+  const xs=list.map(p=>p.x),ys=list.map(p=>p.y);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const availW=Math.max(200,W-(isM()?60:470)),availH=Math.max(200,H-(isM()?380:260));
+  const fit=Math.min(availW/(Math.max(x1-x0,1)+80),availH/(Math.max(y1-y0,1)+80));
+  const o=isM()?{ox:0,oy:0}:{ox:panelOpen?-205:0,oy:0};
+  fly({x:(x0+x1)/2,y:(y0+y1)/2,s:clamp(fit,cam.s*1.3,Math.min(1.9,cam.s*2.2)),...o},900);
+});
+
+clOn=true;
 /* ================= ФИЛЬТРЫ И СПИСОК ================= */
 const state={sports:new Set(),free:false,light:false,q:''};
 const chipsEl=document.getElementById('chips');
@@ -494,6 +541,7 @@ function update(){
   const shown=PLACES.filter(vis);
   PLACES.forEach(p=>markersEl.querySelector(`.mk[data-id="${p.id}"]`).classList.toggle('off',!vis(p)));
   if(selId&&!vis(PLACES.find(p=>p.id===selId)))closeCard(true);
+  recluster(true);
   const word=n=>{const m=n%10,c=n%100;return c>10&&c<15?'площадок':m===1?'площадка':m>1&&m<5?'площадки':'площадок'};
   document.getElementById('lcount').textContent=shown.length+' '+word(shown.length);
   document.getElementById('mcount').textContent=shown.length+' '+word(shown.length);
@@ -607,7 +655,7 @@ function setView(v){
 function openPanel(){panelOpen=true;panel.classList.add('open');document.body.classList.add('po')}
 function select(id){
   const p=PLACES.find(x=>x.id===id);if(!p)return;
-  selId=id;clearRoute();
+  selId=id;clearRoute();recluster(true);
   markersEl.querySelectorAll('.mk').forEach(m=>m.classList.toggle('sel',+m.dataset.id===id));
   listEl.querySelectorAll('.it').forEach(i=>i.classList.toggle('sel',+i.dataset.id===id));
   showCard(p);setView('card');openPanel();focus(p);
@@ -654,7 +702,7 @@ function resetIntro(){
   document.body.classList.remove('started');
   markersEl.querySelectorAll('.mk').forEach(m=>m.classList.remove('sel'));
   world.classList.remove('live');viewport.classList.add('blur');
-  Object.assign(cam,{x:WW/2,y:WH/2,s:coverS()*1.02,ox:0,oy:0});apply();
+  Object.assign(cam,{x:WW/2,y:WH/2,s:coverS()*1.02,ox:0,oy:0});apply();recluster(true);
   buildTitle();
   intro.querySelectorAll('.kick,.lead,.stats,.go').forEach(el=>{el.style.animation='none';el.offsetHeight;el.style.animation=''});
   intro.classList.remove('hide');
