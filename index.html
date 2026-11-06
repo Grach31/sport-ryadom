@@ -315,7 +315,7 @@ body.started .ctrl{opacity:1}
 /* ================= ДАННЫЕ: data/places.json (реестр) + data/map.json (карта из OpenStreetMap) ================= */
 let PLACES, MAP, WW=2400, WH=1600;
 try{
-  const [pj,mj,gj]=await Promise.all([fetch('data/places.json').then(r=>r.json()),fetch('data/map.json?'+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()}),fetch('data/gyms.json').then(r=>r.ok?r.json():[]).catch(()=>[])]);
+  const [pj,mj,gj]=await Promise.all([fetch('data/places.json?'+Date.now()).then(r=>r.json()),fetch('data/map.json?'+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()}),fetch('data/gyms.json?'+Date.now()).then(r=>r.ok?r.json():[]).catch(()=>[])]);
   PLACES=pj;MAP=mj;WW=MAP.WW;WH=MAP.WH;
   gj.forEach(g=>{const gm=MAP.gyms&&MAP.gyms[g.id];if(gm){if(g.lat==null){g.lat=gm.lat;g.lon=gm.lon}PLACES.push({id:g.id,name:g.name,reg:g.reg,mt:'gym',cat:g.cat||'gym',sports:[g.cat||'gym'],kind:g.kind,q:g.addr?('Сочи, '+g.addr):g.name,gym:g,cover:null,school:false,area:'',owner:'',equip:'',photos:[]})}});
 }catch(e){
