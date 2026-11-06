@@ -233,9 +233,14 @@ body.started .ctrl{opacity:1}
 @media (max-width:760px){.glass,.chip{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(12,18,36,.93)}}
 .mk{contain:layout style}
 .mk.cg{visibility:hidden;pointer-events:none}
-.lx{display:none}
+.lx,.grab{display:none}
 @media (max-width:760px){
-  .phead{align-items:center}
+  .grab{display:block;flex:none;height:24px;touch-action:none;cursor:grab;position:relative}
+  .grab:after{content:"";position:absolute;left:50%;top:10px;width:44px;height:4px;margin-left:-22px;border-radius:4px;background:rgba(255,255,255,.3)}
+  .phead{align-items:center;touch-action:none}
+  .phead{padding-top:6px}
+  .phead h3{font-size:15px;white-space:nowrap}
+  .phead span{white-space:nowrap;font-size:12.5px}
   .phead span{margin-left:auto}
   .lx{display:grid;place-items:center;flex:none;width:36px;height:36px;margin-left:12px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--line)}
   .lx svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round}
@@ -302,6 +307,7 @@ body.started .ctrl{opacity:1}
 </div>
 
 <aside class="panel glass" id="panel">
+  <div class="grab" id="grab" title="Потяни вниз, чтобы свернуть"></div>
   <section class="pview" id="vlist">
     <div class="phead"><h3>Площадки района</h3><span id="lcount"></span><button class="lx" id="lclose" title="Закрыть список" aria-label="Закрыть список"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="list" id="list"></div>
@@ -729,13 +735,24 @@ document.getElementById('replay').onclick=resetIntro;
 document.getElementById('zin').onclick=()=>{animId++;zoomAt(W/2+cam.ox,H/2+cam.oy,1.35)};
 document.getElementById('zout').onclick=()=>{animId++;zoomAt(W/2+cam.ox,H/2+cam.oy,1/1.35)};
 document.getElementById('locate').onclick=()=>{if(selId){closeCard(false)}else fitAll()};
-/* закрыть список (телефон): крестик и нажатие на пустое место карты */
+/* закрыть список (телефон): крестик и свайп вниз за шапку/ручку */
 function closeList(){panelOpen=false;panel.classList.remove('open');document.body.classList.remove('po')}
 document.getElementById('lclose').onclick=closeList;
-viewport.addEventListener('click',e=>{
-  if(!isM()||moved>6||e.target.closest('.mk,.ck'))return;
-  if(panelOpen&&vlist.classList.contains('show'))closeList();
-});
+(function(){
+  let y0=0,dy=0,t0=0,drag=false;
+  const handles=[document.getElementById('grab'),document.querySelector('#vlist .phead')];
+  handles.forEach(h=>{
+    h.addEventListener('pointerdown',e=>{if(!isM()||e.target.closest('.lx'))return;drag=true;y0=e.clientY;dy=0;t0=performance.now();h.setPointerCapture(e.pointerId);panel.style.transition='none'});
+    h.addEventListener('pointermove',e=>{if(!drag)return;dy=Math.max(0,e.clientY-y0);panel.style.transform=`translateY(${dy}px)`});
+    const end=()=>{
+      if(!drag)return;drag=false;
+      const fast=dy/Math.max(1,performance.now()-t0)>.5;       // быстрый свайп (px/мс)
+      panel.style.transition='';panel.style.transform='';
+      if(dy>90||(fast&&dy>30)){if(vlist.classList.contains('show'))closeList();else closeCard(true)}
+    };
+    h.addEventListener('pointerup',end);h.addEventListener('pointercancel',end);
+  });
+})();
 document.getElementById('mlist').onclick=()=>{
   if(panelOpen&&vlist.classList.contains('show')){panelOpen=false;panel.classList.remove('open');document.body.classList.remove('po')}
   else{setView('list');openPanel()}
