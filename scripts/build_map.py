@@ -406,6 +406,7 @@ def process(bbox, boundary, elements, places, override, cache, gyms=()):
 
     out = {
         "WW": WW, "WH": WH,
+        "proj": {"kx": round(proj(1, 0)[0] - proj(0, 0)[0], 4), "ox": round(proj(0, 0)[0], 4), "ky": round(proj(0, 0)[1] - proj(0, 1)[1], 4), "oy": round(proj(0, 0)[1], 4)},
         "sea": sea, "coast": coast, "district": district,
         "parks": [path_d(p, True) for p in parks if len(p) > 2],
         "lakes": [path_d(p, True) for p in lakes if len(p) > 2],
