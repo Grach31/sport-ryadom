@@ -233,6 +233,13 @@ body.started .ctrl{opacity:1}
 @media (max-width:760px){.glass,.chip{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(12,18,36,.93)}}
 .mk{contain:layout style}
 .mk.cg{visibility:hidden;pointer-events:none}
+.lx{display:none}
+@media (max-width:760px){
+  .phead{align-items:center}
+  .phead span{margin-left:auto}
+  .lx{display:grid;place-items:center;flex:none;width:36px;height:36px;margin-left:12px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--line)}
+  .lx svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round}
+}
 #clusters .ck{position:absolute;width:0;height:0;cursor:pointer;z-index:4;opacity:0}
 #world.live #clusters .ck{opacity:1;transition:opacity .3s}
 .ck .core{inset:2px;border-width:2.5px;background:#0a1124}
@@ -296,7 +303,7 @@ body.started .ctrl{opacity:1}
 
 <aside class="panel glass" id="panel">
   <section class="pview" id="vlist">
-    <div class="phead"><h3>Площадки района</h3><span id="lcount"></span></div>
+    <div class="phead"><h3>Площадки района</h3><span id="lcount"></span><button class="lx" id="lclose" title="Закрыть список" aria-label="Закрыть список"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="list" id="list"></div>
   </section>
   <section class="pview" id="vcard"></section>
@@ -722,6 +729,13 @@ document.getElementById('replay').onclick=resetIntro;
 document.getElementById('zin').onclick=()=>{animId++;zoomAt(W/2+cam.ox,H/2+cam.oy,1.35)};
 document.getElementById('zout').onclick=()=>{animId++;zoomAt(W/2+cam.ox,H/2+cam.oy,1/1.35)};
 document.getElementById('locate').onclick=()=>{if(selId){closeCard(false)}else fitAll()};
+/* закрыть список (телефон): крестик и нажатие на пустое место карты */
+function closeList(){panelOpen=false;panel.classList.remove('open');document.body.classList.remove('po')}
+document.getElementById('lclose').onclick=closeList;
+viewport.addEventListener('click',e=>{
+  if(!isM()||moved>6||e.target.closest('.mk,.ck'))return;
+  if(panelOpen&&vlist.classList.contains('show'))closeList();
+});
 document.getElementById('mlist').onclick=()=>{
   if(panelOpen&&vlist.classList.contains('show')){panelOpen=false;panel.classList.remove('open');document.body.classList.remove('po')}
   else{setView('list');openPanel()}
